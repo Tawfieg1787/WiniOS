@@ -1,5 +1,5 @@
 import UIKit
-
+import Darwin
 /// Helper to enable JIT via StikDebug/StikJIT URL scheme.
 /// Opens StikDebug with an embedded script, polls for CS_DEBUGGED,
 /// then allocates JIT memory and detaches the debugger.
@@ -23,23 +23,32 @@ enum StikJITHelper {
 
     /// Check if StikDebug or StikJIT is available by trying to open their URL.
     static var isAvailable: Bool {
-        guard let url = URL(string: "stikjit://enable-jit") else { return false }
+        guard let url = URL(string: "stikdebug://enable-jit") else { return false }
         return UIApplication.shared.canOpenURL(url)
     }
 
     /// Open StikDebug with our JIT script embedded in the URL.
     /// StikDebug will attach to our process and run the script.
-    static func enableJIT(completion: @escaping (Bool) -> Void) {
-        let bundleId = Bundle.main.bundleIdentifier ?? "com.madeira.emulator"
+    static func enableJIT(completion: @escaping (Bool) -> Void) {guard let bundleID = Bundle.main.bundleIdentifier else {
+    LogStore.shared.log("Could not determine bundle ID", level: .error)
+    completion(false)
+    return
+}
 
-        // Build the URL with script data
-        let scriptData = resolvedScriptBase64.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let urlString = "stikjit://enable-jit?bundle-id=\(bundleId)&script-data=\(scriptData)"
+var components = URLComponents()
+components.scheme = "stikdebug"
+components.host = "enable-jit"
+components.queryItems = [
+    URLQueryItem(name: "bundle-id", value: bundleID),
+    URLQueryItem(name: "pid", value: String(getpid())),
+    URLQueryItem(name: "script-data", value: resolvedScriptBase64)
+]
 
-        guard let url = URL(string: urlString) else {
-            LogStore.shared.log("Failed to build StikJIT URL", level: .error)
-            completion(false)
-            return
+guard let url = components.url else {
+    LogStore.shared.log("Failed to build StikDebug URL", level: .error)
+    completion(false)
+    return
+}
         }
 
         LogStore.shared.log("Opening StikDebug to enable JIT...")
