@@ -49,7 +49,6 @@ guard let url = components.url else {
     completion(false)
     return
 }
-        }
 
         LogStore.shared.log("Opening StikDebug to enable JIT...")
 
